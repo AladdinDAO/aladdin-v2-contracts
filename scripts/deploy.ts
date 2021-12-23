@@ -18,12 +18,22 @@ import {
   ERC20__factory,
   Keeper,
   Keeper__factory,
+  MIMConvexVault,
+  MIMConvexVault__factory,
+  RenConvexVault,
+  RenConvexVault__factory,
   RewardBondDepositor,
   RewardBondDepositor__factory,
   Staking,
   Staking__factory,
+  STETHConvexVault,
+  STETHConvexVault__factory,
   Treasury,
   Treasury__factory,
+  TriCrypto2ConvexVault,
+  TriCrypto2ConvexVault__factory,
+  TriPoolConvexVault,
+  TriPoolConvexVault__factory,
   UniswapV2PairPriceOracle,
   UniswapV2PairPriceOracle__factory,
   UniswapV2PriceOracle,
@@ -82,6 +92,8 @@ const TOTAL_RESERVE = {
 
 const PERCENTAGE_CONTRIBUTOR = ethers.utils.parseEther("0.5"); // 50%
 
+const BOND_PERCENTAGE = ethers.utils.parseEther("1"); // 100%
+
 const MANAGER_MULTISIGN = constants.AddressZero;
 
 const COMMUNITY_MULTISIGN = constants.AddressZero;
@@ -120,6 +132,15 @@ const config: {
   distributor?: string;
   keeper?: string;
   airdrop?: string;
+  vaults: {
+    convex: {
+      mim?: string;
+      ren?: string;
+      steth?: string;
+      tricrypto?: string;
+      tripool?: string;
+    };
+  };
 } = {
   tokens: {
     DAI: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
@@ -149,6 +170,15 @@ const config: {
   distributor: "0x1cCa80c17e9155eB1F5a1Df52Ef92Cc551A4b816",
   keeper: "0xDC2673d6B09a022de00fFE16bf1aE7F8004a3230",
   airdrop: "0x4c42A7C2Bb34e2b9dC43098B6874771e2116e940",
+  vaults: {
+    convex: {
+      mim: "0x6787Db5223B84753AC597431E9137221C39DA212",
+      ren: "0x24b724aae64ccAB170fa05624A400215c59dB697",
+      steth: "0x8D1631C549f4b08c4C72a874a69764AB56f7B4EA",
+      tricrypto: "0x5f01D42Ac4529f79E7107138372Fea91D3f28cF1",
+      tripool: "0x6A975BB2b977361e53d37407CCa3e035528c14D8",
+    },
+  },
 };
 
 let dao: DAODistributor;
@@ -165,6 +195,13 @@ let keeper: Keeper;
 let airdrop: Airdrop;
 let staking: Staking;
 let distributor: Distributor;
+
+// convex vaults
+let mimVault: MIMConvexVault;
+let renVault: RenConvexVault;
+let stethVault: STETHConvexVault;
+let tricryptoVault: TriCrypto2ConvexVault;
+let tripoolVault: TriPoolConvexVault;
 
 async function setupReserveToken() {
   // setup reserve tokens
@@ -366,6 +403,83 @@ async function setupTreasury() {
   }
 }
 
+async function deployConvexVault() {
+  const [deployer] = await ethers.getSigners();
+  // depoly MIMConvexVault
+  if (config.vaults.convex.mim === undefined) {
+    const MIMConvexVault = await ethers.getContractFactory("MIMConvexVault", deployer);
+    mimVault = await MIMConvexVault.deploy(rewardBond.address, await deployer.getAddress());
+    await mimVault.deployed();
+    config.vaults.convex.mim = mimVault.address;
+    console.log("Deploy MIMConvexVault at:", mimVault.address);
+  } else {
+    mimVault = MIMConvexVault__factory.connect(config.vaults.convex.mim, deployer);
+    console.log("Found MIMConvexVault at:", mimVault.address);
+  }
+  // depoly RenConvexVault
+  if (config.vaults.convex.ren === undefined) {
+    const RenConvexVault = await ethers.getContractFactory("RenConvexVault", deployer);
+    renVault = await RenConvexVault.deploy(rewardBond.address, await deployer.getAddress());
+    await renVault.deployed();
+    config.vaults.convex.ren = renVault.address;
+    console.log("Deploy RenConvexVault at:", renVault.address);
+  } else {
+    renVault = RenConvexVault__factory.connect(config.vaults.convex.ren, deployer);
+    console.log("Found RenConvexVault at:", renVault.address);
+  }
+  // depoly STETHConvexVault
+  if (config.vaults.convex.steth === undefined) {
+    const STETHConvexVault = await ethers.getContractFactory("STETHConvexVault", deployer);
+    stethVault = await STETHConvexVault.deploy(rewardBond.address, await deployer.getAddress());
+    await stethVault.deployed();
+    config.vaults.convex.steth = stethVault.address;
+    console.log("Deploy STETHConvexVault at:", stethVault.address);
+  } else {
+    stethVault = STETHConvexVault__factory.connect(config.vaults.convex.steth, deployer);
+    console.log("Found STETHConvexVault at:", stethVault.address);
+  }
+  // depoly TriCrypto2ConvexVault
+  if (config.vaults.convex.tricrypto === undefined) {
+    const TriCrypto2ConvexVault = await ethers.getContractFactory("TriCrypto2ConvexVault", deployer);
+    tricryptoVault = await TriCrypto2ConvexVault.deploy(rewardBond.address, await deployer.getAddress());
+    await tricryptoVault.deployed();
+    config.vaults.convex.tricrypto = tricryptoVault.address;
+    console.log("Deploy TriCrypto2ConvexVault at:", tricryptoVault.address);
+  } else {
+    tricryptoVault = TriCrypto2ConvexVault__factory.connect(config.vaults.convex.tricrypto, deployer);
+    console.log("Found TriCrypto2ConvexVault at:", tricryptoVault.address);
+  }
+  // depoly TriPoolConvexVault
+  if (config.vaults.convex.tripool === undefined) {
+    const TriPoolConvexVault = await ethers.getContractFactory("TriPoolConvexVault", deployer);
+    tripoolVault = await TriPoolConvexVault.deploy(rewardBond.address, await deployer.getAddress());
+    await tripoolVault.deployed();
+    config.vaults.convex.tripool = tripoolVault.address;
+    console.log("Deploy TriPoolConvexVault at:", tripoolVault.address);
+  } else {
+    tripoolVault = TriPoolConvexVault__factory.connect(config.vaults.convex.tripool, deployer);
+    console.log("Found TriPoolConvexVault at:", tripoolVault.address);
+  }
+
+  for (const vault of [mimVault, renVault, stethVault, tricryptoVault, tripoolVault]) {
+    if (!(await keeper.isVault(vault.address))) {
+      console.log(`add vault[${vault.address}] to keeper`);
+      const tx = await keeper.updateVault(vault.address, true);
+      await tx.wait();
+    }
+    if (!(await rewardBond.isVault(vault.address))) {
+      console.log(`add vault[${vault.address}] to reward bond`);
+      const tx = await rewardBond.updateVault(vault.address, true);
+      await tx.wait();
+    }
+    if (!(await vault.bondPercentage()).eq(BOND_PERCENTAGE)) {
+      console.log(`vault[${vault.address}] set bond percentage to:`, ethers.utils.formatEther(BOND_PERCENTAGE));
+      const tx = await vault.setBondPercentage(BOND_PERCENTAGE);
+      await tx.wait();
+    }
+  }
+}
+
 async function main() {
   const [deployer] = await ethers.getSigners();
 
@@ -538,6 +652,9 @@ async function main() {
     airdrop = Airdrop__factory.connect(config.airdrop, deployer);
     console.log("Found Airdrop at:", airdrop.address);
   }
+
+  // convex vault
+  await deployConvexVault();
 
   // setup xald
   if ((await xald.staking()) === constants.AddressZero) {
