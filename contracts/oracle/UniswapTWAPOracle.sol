@@ -33,7 +33,7 @@ contract UniswapTWAPOracle {
   address immutable feeder;
   address public immutable pair;
   // this is redundant with granularity and windowSize, but stored for gas savings & informational purposes.
-  uint256 constant periodSize = 1800;
+  uint256 constant periodSize = 3600 * 4;
   uint256 Q112 = 2**112;
   uint256 e10 = 10**18;
 
