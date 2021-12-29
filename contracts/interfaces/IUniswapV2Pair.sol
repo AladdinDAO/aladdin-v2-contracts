@@ -21,4 +21,13 @@ interface IUniswapV2Pair {
   function price0CumulativeLast() external view returns (uint256);
 
   function price1CumulativeLast() external view returns (uint256);
+
+  function mint(address to) external returns (uint256 liquidity);
+
+  function swap(
+    uint256 amount0Out,
+    uint256 amount1Out,
+    address to,
+    bytes calldata data
+  ) external;
 }
