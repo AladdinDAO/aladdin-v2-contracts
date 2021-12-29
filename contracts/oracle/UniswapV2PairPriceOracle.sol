@@ -128,7 +128,7 @@ contract UniswapV2PairPriceOracle is Ownable, IPriceOracle {
     // number of other token that 1 ald can swap right now.
     uint256 _amount = _reserveOtherToken.mul(1e18).div(_reserveALD);
     // number of other token that 1 ald can swap in twap.
-    (uint256 _twapAmount, uint256 _lastUpdatedAgo) = IUniswapTWAPOracle(_twap).quote(_ald, 1e18, _otherToken, 2);
+    (uint256 _twapAmount, uint256 _lastUpdatedAgo) = IUniswapTWAPOracle(_twap).quote(_ald, 1e18, _otherToken, 1);
 
     require(_lastUpdatedAgo <= maxTimestampDelta, "UniswapV2PriceOracleWithTWAP: twap price too old");
     require(_amount >= _twapAmount.mul(1e18 - maxPriceDiff).div(1e18), "UniswapV2PairPriceOracle: price too small");
