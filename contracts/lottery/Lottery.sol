@@ -44,8 +44,8 @@ contract Lottery is OwnableUpgradeable, ILottery {
   /// The round id of lottery.
   uint256 public round;
 
-  /// the maximum number of win times each token can have.
-  uint256 public participeThreshold;
+  /// the maximum number of round each token can participant.
+  uint256 public participantThreshold;
 
   /// the amount of ALD in each lottery.
   uint256 public totalPrizeThreshold;
@@ -59,8 +59,8 @@ contract Lottery is OwnableUpgradeable, ILottery {
   /// the prize info of each prize.
   PrizeInfo[4] public prizeInfo;
 
-  /// mapping from tokenId to number of win times.
-  mapping(uint256 => uint256) public winTimes;
+  /// mapping from tokenId to registered round.
+  mapping(uint256 => uint256) public registeredRound;
 
   /// whether the token is registered;
   mapping(uint256 => bool) public isRegistered;
@@ -99,6 +99,13 @@ contract Lottery is OwnableUpgradeable, ILottery {
 
   /********************************** Mutated Functions **********************************/
 
+  function remainParticipantTimes(uint256 _tokenId) public view returns (uint256) {
+    if (!isRegistered[_tokenId]) return 0;
+    uint256 _usedRound = round - registeredRound[_tokenId];
+    if (_usedRound < participantThreshold) return participantThreshold - _usedRound;
+    else return 0;
+  }
+
   /// @dev register nft token, called by NFT contract
   /// @param tokenId The id of corresponding NFT.
   function registerToken(uint256 tokenId) external override {
@@ -112,12 +119,19 @@ contract Lottery is OwnableUpgradeable, ILottery {
   function openPrize() external {
     require(keeper == address(0) || msg.sender == keeper, "Lottery: sender not allowed");
     require(currentPoolSize() >= totalPrizeThreshold, "Lottery: not enough ald");
+    uint256 _round = round + 1;
+    round = _round;
 
-    (uint256[] memory _levelCount, uint256[] memory _levelWeight, uint256 _sampleCount) = _loadLotteryInfo();
+    (
+      uint256[] memory _offset,
+      uint256[] memory _levelCount,
+      uint256[] memory _levelWeight,
+      uint256 _sampleCount
+    ) = _loadLotteryInfo(_round);
 
     (uint256[] memory _levels, uint256[] memory _indices) = _sample(_levelCount, _levelWeight, _sampleCount);
 
-    _distributePrize(_levels, _indices);
+    _distributePrize(_round, _levels, _offset, _indices);
   }
 
   /// @dev claim pending prize reward
@@ -142,7 +156,7 @@ contract Lottery is OwnableUpgradeable, ILottery {
   }
 
   function updateParticipeThreshold(uint256 _threshold) external onlyOwner {
-    participeThreshold = _threshold;
+    participantThreshold = _threshold;
   }
 
   function updateTotalPrizeThreshold(uint256 _threshold) external onlyOwner {
@@ -171,28 +185,44 @@ contract Lottery is OwnableUpgradeable, ILottery {
     uint256 _level = IAladdinHonor(_token).tokenToLevel(_tokenId).sub(1);
     registeredTokens[_level].push(_tokenId);
     isRegistered[_tokenId] = true;
+    registeredRound[_tokenId] = round;
   }
 
-  function _loadLotteryInfo()
+  function _loadLotteryInfo(uint256 _round)
     internal
     view
     returns (
+      uint256[] memory _offset,
       uint256[] memory _levelCount,
       uint256[] memory _levelWeights,
       uint256 _sampleCount
     )
   {
+    _offset = new uint256[](9);
     _levelCount = new uint256[](9);
     _levelWeights = new uint256[](9);
 
-    uint256 _theshold = participeThreshold;
+    uint256 _theshold = participantThreshold;
     for (uint256 level = 0; level < 9; ++level) {
       _levelWeights[level] = weights[level];
       uint256[] storage _tokens = registeredTokens[level];
       uint256 length = _tokens.length;
-      for (uint256 i = 0; i < length; i++) {
-        if (winTimes[i] < _theshold) _levelCount[level] += 1;
+      if (length == 0) continue;
+      uint256 left = 0;
+      uint256 right = length;
+      uint256 mid;
+      // since the registered round of tokens in `_tokens` is in non-decreasing order,
+      // we can use binary search to find the first token which can participate lottery.
+      while (left < right) {
+        mid = (left + right - 1) >> 1;
+        if (mid == length || _round <= _theshold + registeredRound[_tokens[mid]]) {
+          right = mid;
+        } else {
+          left = mid + 1;
+        }
       }
+      _levelCount[level] = length - right;
+      _offset[level] = right;
     }
 
     for (uint256 i = 0; i < 4; i++) {
@@ -250,8 +280,12 @@ contract Lottery is OwnableUpgradeable, ILottery {
     }
   }
 
-  function _distributePrize(uint256[] memory _levels, uint256[] memory _indices) internal {
-    uint256 _round = round;
+  function _distributePrize(
+    uint256 _round,
+    uint256[] memory _levels,
+    uint256[] memory _offset,
+    uint256[] memory _indices
+  ) internal {
     uint256 i;
     address _token = token;
     uint256 _tokenId;
@@ -259,18 +293,16 @@ contract Lottery is OwnableUpgradeable, ILottery {
     for (uint256 prizeLevel = 0; prizeLevel < 4; prizeLevel++) {
       PrizeInfo memory _info = prizeInfo[prizeLevel];
       for (uint256 j = 0; j < _info.count; j++) {
-        _tokenId = registeredTokens[_levels[i]][_indices[i]];
+        _tokenId = registeredTokens[_levels[i]][_indices[i] + _offset[i]];
         _owner = IERC721(_token).ownerOf(_tokenId);
         accountToWinInfo[_owner].push(
           WinInfo({ round: uint64(_round), prizeLevel: uint64(prizeLevel), amount: _info.amount })
         );
         unclaimedRewards[_owner] += _info.amount;
-        winTimes[_tokenId] += 1;
         i += 1;
       }
     }
     totalUnclaimedRewards += totalPrizeThreshold;
-    round += 1;
   }
 
   /// @dev xoshiro256 algorithm to generate random 64-bit integer, see: https://en.wikipedia.org/wiki/Xorshift

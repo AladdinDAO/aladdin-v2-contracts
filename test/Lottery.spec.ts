@@ -220,7 +220,7 @@ describe("Lottery.spec", async () => {
       });
 
       it("should succeed", async () => {
-        await nft.setPendingMint(await alice.getAddress(), 9);
+        await nft.setPendingMint(await alice.getAddress(), 8);
         await nft.connect(alice).mint();
 
         await lottery.updateWeights([1, 2, 3, 4, 5, 6, 7, 8, 9]);
