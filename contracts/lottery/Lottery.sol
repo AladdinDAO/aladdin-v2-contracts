@@ -202,6 +202,7 @@ contract Lottery is OwnableUpgradeable, ILottery {
     _levelCount = new uint256[](9);
     _levelWeights = new uint256[](9);
 
+    uint256 _totalTokenCount = 0;
     uint256 _theshold = participantThreshold;
     for (uint256 level = 0; level < 9; ++level) {
       _levelWeights[level] = weights[level];
@@ -222,12 +223,14 @@ contract Lottery is OwnableUpgradeable, ILottery {
         }
       }
       _levelCount[level] = length - right;
+      _totalTokenCount += _levelCount[level];
       _offset[level] = right;
     }
 
     for (uint256 i = 0; i < 4; i++) {
       _sampleCount += prizeInfo[i].count;
     }
+    require(_totalTokenCount >= _sampleCount, "Lottery: token count not enough");
   }
 
   /// @dev Weighted random sampling using Algorithm A-Chao, see: https://en.wikipedia.org/wiki/Reservoir_sampling#Weighted_random_sampling

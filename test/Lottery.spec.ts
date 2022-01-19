@@ -219,6 +219,18 @@ describe("Lottery.spec", async () => {
         await expect(lottery.openPrize()).to.revertedWith("Lottery: not enough ald");
       });
 
+      it("should revert, when token count not enough", async () => {
+        await nft.setPendingMint(await alice.getAddress(), 2);
+        await nft.connect(alice).mint();
+
+        await lottery.updateWeights([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        await lottery.updateTotalPrizeThreshold(11);
+        await lottery.updateParticipeThreshold(1);
+        await lottery.updatePrizeInfo([4, 3, 2, 1], [1, 1, 1, 2]);
+        await ald.mint(lottery.address, 11);
+        await expect(lottery.connect(keeper).openPrize()).to.revertedWith("Lottery: token count not enough");
+      });
+
       it("should succeed", async () => {
         await nft.setPendingMint(await alice.getAddress(), 8);
         await nft.connect(alice).mint();
