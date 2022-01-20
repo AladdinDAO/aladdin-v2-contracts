@@ -35,8 +35,8 @@ contract Lottery is OwnableUpgradeable, ILottery {
     uint128 amount;
   }
 
-  /// the address of ALD token.
-  address public ALD;
+  /// the address of rewardToken token.
+  address public rewardToken;
 
   /// the address of NFT token.
   address public token;
@@ -47,7 +47,7 @@ contract Lottery is OwnableUpgradeable, ILottery {
   /// the maximum number of round each token can participant.
   uint256 public participantThreshold;
 
-  /// the amount of ALD in each lottery.
+  /// the amount of rewardToken in each lottery.
   uint256 public totalPrizeThreshold;
 
   /// the number of total unclaimed rewards.
@@ -77,20 +77,20 @@ contract Lottery is OwnableUpgradeable, ILottery {
   // mapping from user address to win info in each round.
   mapping(address => WinInfo[]) private accountToWinInfo;
 
-  function initialize(address _ALD, address _token) external initializer {
-    require(_ALD != address(0), "Lottery: zero address");
+  function initialize(address _rewardToken, address _token) external initializer {
+    require(_rewardToken != address(0), "Lottery: zero address");
     require(_token != address(0), "Lottery: zero address");
 
     OwnableUpgradeable.__Ownable_init();
 
-    ALD = _ALD;
+    rewardToken = _rewardToken;
     token = _token;
   }
 
   /********************************** View Functions **********************************/
 
   function currentPoolSize() public view returns (uint256) {
-    return IERC20Upgradeable(ALD).balanceOf(address(this)).sub(totalUnclaimedRewards);
+    return IERC20Upgradeable(rewardToken).balanceOf(address(this)).sub(totalUnclaimedRewards);
   }
 
   function getAccountToWinInfo(address _user) external view returns (WinInfo[] memory) {
@@ -140,7 +140,7 @@ contract Lottery is OwnableUpgradeable, ILottery {
     unclaimedRewards[msg.sender] = 0;
     totalUnclaimedRewards = totalUnclaimedRewards.sub(_uncalimed);
 
-    IERC20Upgradeable(ALD).safeTransfer(msg.sender, _uncalimed);
+    IERC20Upgradeable(rewardToken).safeTransfer(msg.sender, _uncalimed);
   }
 
   /********************************** Restricted Functions **********************************/
