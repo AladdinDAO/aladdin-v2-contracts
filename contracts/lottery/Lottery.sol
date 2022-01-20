@@ -35,6 +35,16 @@ contract Lottery is OwnableUpgradeable, ILottery {
     uint128 amount;
   }
 
+  event RegisterToken(uint256 tokenId, uint256 round);
+  event UpdateWeights(uint256[] weights);
+  event UpdateParticipantThreshold(uint256 threshold);
+  event UpdateTotalPrizeThreshold(uint256 threshold);
+  event UpdatePrizeInfo(uint256[] amounts, uint256[] counts);
+  event UpdateKeeper(address keeper);
+  event Claim(address user, uint256 amount);
+  event OpenPrize(uint256 round, uint256 rewardAmount);
+  event WinPrize(uint256 round, uint256 prizeLevel, uint256 amount);
+
   /// the address of rewardToken token.
   address public rewardToken;
 
@@ -97,6 +107,15 @@ contract Lottery is OwnableUpgradeable, ILottery {
     return accountToWinInfo[_user];
   }
 
+  function getTotalWeights() external view returns (uint256) {
+    (, uint256[] memory _levelCount, uint256[] memory _levelWeight, ) = _loadLotteryInfo(round + 1);
+    uint256 _totalWeight = 0;
+    for (uint256 i = 0; i < 9; i++) {
+      _totalWeight = _totalWeight.add(_levelCount[i].mul(_levelWeight[i]));
+    }
+    return _totalWeight;
+  }
+
   /********************************** Mutated Functions **********************************/
 
   function remainParticipantTimes(uint256 _tokenId) public view returns (uint256) {
@@ -131,6 +150,8 @@ contract Lottery is OwnableUpgradeable, ILottery {
 
     (uint256[] memory _levels, uint256[] memory _indices) = _sample(_levelCount, _levelWeight, _sampleCount);
 
+    emit OpenPrize(_round, totalPrizeThreshold);
+
     _distributePrize(_round, _levels, _offset, _indices);
   }
 
@@ -141,6 +162,8 @@ contract Lottery is OwnableUpgradeable, ILottery {
     totalUnclaimedRewards = totalUnclaimedRewards.sub(_uncalimed);
 
     IERC20Upgradeable(rewardToken).safeTransfer(msg.sender, _uncalimed);
+
+    emit Claim(msg.sender, _uncalimed);
   }
 
   /********************************** Restricted Functions **********************************/
@@ -152,15 +175,21 @@ contract Lottery is OwnableUpgradeable, ILottery {
         require(_weights[i] > _weights[i - 1], "Lottery: weight should increase");
       }
       weights[i] = _weights[i];
+
+      emit UpdateWeights(_weights);
     }
   }
 
   function updateParticipeThreshold(uint256 _threshold) external onlyOwner {
     participantThreshold = _threshold;
+
+    emit UpdateParticipantThreshold(_threshold);
   }
 
   function updateTotalPrizeThreshold(uint256 _threshold) external onlyOwner {
     totalPrizeThreshold = _threshold;
+
+    emit UpdateTotalPrizeThreshold(_threshold);
   }
 
   function updatePrizeInfo(uint256[] memory amounts, uint256[] memory counts) external onlyOwner {
@@ -173,10 +202,14 @@ contract Lottery is OwnableUpgradeable, ILottery {
       sum = sum.add(amounts[i].mul(counts[i]));
     }
     require(sum == totalPrizeThreshold, "Lottery: sum mismatch");
+
+    emit UpdatePrizeInfo(amounts, counts);
   }
 
   function updateKeeper(address _keeper) external onlyOwner {
     keeper = _keeper;
+
+    emit UpdateKeeper(_keeper);
   }
 
   /********************************** Internal Functions **********************************/
@@ -186,6 +219,8 @@ contract Lottery is OwnableUpgradeable, ILottery {
     registeredTokens[_level].push(_tokenId);
     isRegistered[_tokenId] = true;
     registeredRound[_tokenId] = round;
+
+    emit RegisterToken(_tokenId, round);
   }
 
   function _loadLotteryInfo(uint256 _round)
@@ -303,12 +338,13 @@ contract Lottery is OwnableUpgradeable, ILottery {
         );
         unclaimedRewards[_owner] += _info.amount;
         i += 1;
+        emit WinPrize(_round, prizeLevel, _info.amount);
       }
     }
     totalUnclaimedRewards += totalPrizeThreshold;
   }
 
-  /// @dev xoshiro256 algorithm to generate random 64-bit integer, see: https://en.wikipedia.org/wiki/Xorshift
+  /// @dev xoshiro256 algorithm to generate pseudorandom 64-bit integer, see: https://en.wikipedia.org/wiki/Xorshift
   function _xoshiro256ss(uint256 _state) internal pure returns (uint64, uint256) {
     uint64 s0 = uint64(_state);
     uint64 s1 = uint64(_state >> 64);

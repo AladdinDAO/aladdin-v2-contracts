@@ -9,6 +9,10 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/ILottery.sol";
 
 contract AladdinHonor is ERC721, Ownable, ReentrancyGuard {
+  event SetPendingMint(address indexed account, uint256 level);
+  event SetLevelURI(uint256 level, string url);
+  event SetLottery(address lottery);
+
   struct PendingMint {
     // current minted level.
     uint128 mintedLevel;
@@ -66,10 +70,14 @@ contract AladdinHonor is ERC721, Ownable, ReentrancyGuard {
   function setLevelURI(uint256 level, string memory uri) external onlyOwner {
     require(1 <= level && level <= 9, "AladdinHonor: invalid level");
     levelToURI[level] = uri;
+
+    emit SetLevelURI(level, uri);
   }
 
   function setLottery(address _lottery) external onlyOwner {
     lottery = _lottery;
+
+    emit SetLottery(_lottery);
   }
 
   function setPendingMints(address[] memory users, uint256[] memory levels) external onlyOwner {
@@ -93,5 +101,6 @@ contract AladdinHonor is ERC721, Ownable, ReentrancyGuard {
     pending.maxLevel = uint128(level);
 
     addressToPendingMint[user] = pending;
+    emit SetPendingMint(user, level);
   }
 }

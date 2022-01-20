@@ -63,7 +63,7 @@ describe("Lottery.spec", async () => {
 
       it("should succeed", async () => {
         expect(await nft.levelToURI(1)).to.eq("");
-        await nft.setLevelURI(1, "243");
+        await expect(nft.setLevelURI(1, "243")).to.emit(nft, "SetLevelURI").withArgs(1, "243");
         expect(await nft.levelToURI(1)).to.eq("243");
       });
     });
@@ -71,7 +71,7 @@ describe("Lottery.spec", async () => {
     context("#setLottery", async () => {
       it("should succeed", async () => {
         expect(await nft.lottery()).to.eq(lottery.address);
-        await nft.setLottery(constants.AddressZero);
+        await expect(nft.setLottery(constants.AddressZero)).to.emit(nft, "SetLottery").withArgs(constants.AddressZero);
         expect(await nft.lottery()).to.eq(constants.AddressZero);
       });
     });
@@ -98,9 +98,13 @@ describe("Lottery.spec", async () => {
       });
 
       it("should succeed", async () => {
-        await nft.setPendingMints([await alice.getAddress()], [1]);
+        await expect(nft.setPendingMints([await alice.getAddress()], [1]))
+          .to.emit(nft, "SetPendingMint")
+          .withArgs(await alice.getAddress(), 1);
         expect((await nft.addressToPendingMint(await alice.getAddress())).maxLevel).to.eq(BigNumber.from(1));
-        await nft.setPendingMints([await alice.getAddress()], [9]);
+        await expect(nft.setPendingMints([await alice.getAddress()], [9]))
+          .to.emit(nft, "SetPendingMint")
+          .withArgs(await alice.getAddress(), 9);
         expect((await nft.addressToPendingMint(await alice.getAddress())).maxLevel).to.eq(BigNumber.from(9));
       });
     });
@@ -128,7 +132,6 @@ describe("Lottery.spec", async () => {
 
     context("#mint", async () => {
       it("should succeed", async () => {
-        // await nft.setLottery(constants.AddressZero);
         await nft.setPendingMint(await alice.getAddress(), 4);
         expect(await nft.balanceOf(await alice.getAddress())).to.eq(constants.Zero);
         await nft.connect(alice).mint();
@@ -175,7 +178,9 @@ describe("Lottery.spec", async () => {
       });
 
       it("should succeed", async () => {
-        await lottery.updateWeights([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        await expect(lottery.updateWeights([1, 2, 3, 4, 5, 6, 7, 8, 9]))
+          .to.emit(lottery, "UpdateWeights")
+          .withArgs([1, 2, 3, 4, 5, 6, 7, 8, 9]);
         expect(await lottery.weights(0)).to.eq(1);
         expect(await lottery.weights(1)).to.eq(2);
         expect(await lottery.weights(2)).to.eq(3);
@@ -199,8 +204,10 @@ describe("Lottery.spec", async () => {
       });
 
       it("should succeed", async () => {
-        await lottery.updateTotalPrizeThreshold(20);
-        await lottery.updatePrizeInfo([1, 2, 3, 4], [4, 3, 2, 1]);
+        await expect(lottery.updateTotalPrizeThreshold(20)).to.emit(lottery, "UpdateTotalPrizeThreshold").withArgs(20);
+        await expect(lottery.updatePrizeInfo([1, 2, 3, 4], [4, 3, 2, 1]))
+          .to.emit(lottery, "UpdatePrizeInfo")
+          .withArgs([1, 2, 3, 4], [4, 3, 2, 1]);
         expect(await lottery.prizeInfo(0)).to.deep.eq([BigNumber.from(1), BigNumber.from(4)]);
         expect(await lottery.prizeInfo(1)).to.deep.eq([BigNumber.from(2), BigNumber.from(3)]);
         expect(await lottery.prizeInfo(2)).to.deep.eq([BigNumber.from(3), BigNumber.from(2)]);
@@ -225,7 +232,7 @@ describe("Lottery.spec", async () => {
 
         await lottery.updateWeights([1, 2, 3, 4, 5, 6, 7, 8, 9]);
         await lottery.updateTotalPrizeThreshold(11);
-        await lottery.updateParticipeThreshold(1);
+        await expect(lottery.updateParticipeThreshold(1)).to.emit(lottery, "UpdateParticipantThreshold").withArgs(1);
         await lottery.updatePrizeInfo([4, 3, 2, 1], [1, 1, 1, 2]);
         await ald.mint(lottery.address, 11);
         await expect(lottery.connect(keeper).openPrize()).to.revertedWith("Lottery: token count not enough");
@@ -250,7 +257,9 @@ describe("Lottery.spec", async () => {
         await ald.mint(lottery.address, 20);
         expect(await lottery.currentPoolSize()).to.eq(BigNumber.from(20));
 
-        await lottery.connect(alice).claim();
+        await expect(lottery.connect(alice).claim())
+          .to.emit(lottery, "Claim")
+          .withArgs(await alice.getAddress(), BigNumber.from(11));
         expect(await ald.balanceOf(await alice.getAddress())).to.eq(BigNumber.from(11));
         expect(await lottery.unclaimedRewards(await alice.getAddress())).to.eq(BigNumber.from(0));
         expect(await lottery.totalUnclaimedRewards()).to.eq(BigNumber.from(0));
